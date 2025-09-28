@@ -23,7 +23,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "chat",
             "sender",
             "content",
-            "type,"
+            "type",
             "attachments",
             "created_at",
             "updated_at",

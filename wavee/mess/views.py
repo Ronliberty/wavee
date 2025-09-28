@@ -8,31 +8,81 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 
 
+# class ListMessagesView(APIView):
+#     permissions_classes = [permissions.IsAuthenticated]
+
+#     def get(self, request, chat_id):
+#         chat = get_object_or_404(Chat, id=chat_id)
+#         if not chat.members.filter(user=request.user).exists():
+#             return Response({"error": "Not a member of this chat"}, status=403)
+#         messages = chat.messsages.all().order_by("created_at")
+#         serializer = MessageSerializer(messages, many=True)
+#         return Response(serializer.data)
+    
 class ListMessagesView(APIView):
-    permissions_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, chat_id):
         chat = get_object_or_404(Chat, id=chat_id)
         if not chat.members.filter(user=request.user).exists():
             return Response({"error": "Not a member of this chat"}, status=403)
-        messages = chat.messsages.all().order_by("created_at")
+        
+        # Fixed typo here
+        messages = chat.messages.all().order_by("created_at")
+        
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+
+
+
+# class SendMessageView(APIView):
+#     permissions_classes = [permissions.IsAuthenticated]
+
+#     @transaction.atomic
+#     def post(self, request):
+#         serializer = CreateMessageSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         chat = get_object_or_404(Chat, id=serializer.validated_data["chat"].id)
+
+#         if not chat.members.filter(user=request.user).exists():
+#             return Response({"error": "Not a mamber of this chat" }, status=403)
+#         message = serializer.save(sender=request.user)
+
+#         files = request.FILES.getlist("attachments")
+#         for f in files:
+#             Attachment.objects.create(
+#                 message=message,
+#                 file=f,
+#                 file_type=f.content_type,
+#                 file_size=f.size
+#             )
+#         return Response(MessageSerializer(message).data, status=201)
     
 
 class SendMessageView(APIView):
-    permissions_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
-        serializer = CreateMessageSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        chat = get_object_or_404(Chat, id=serializer.validated_data["chat"].id)
+        data = request.data.copy()  # Work with a mutable copy
 
+        # Ensure chat ID is passed correctly
+        chat_id = data.get("chat")
+        if not chat_id:
+            return Response({"error": "Chat ID is required"}, status=400)
+
+        chat = get_object_or_404(Chat, id=chat_id)
+
+        # Check membership
         if not chat.members.filter(user=request.user).exists():
-            return Response({"error": "Not a mamber of this chat" }, status=403)
+            return Response({"error": "Not a member of this chat"}, status=403)
+
+        # Serialize the message
+        serializer = CreateMessageSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
         message = serializer.save(sender=request.user)
 
+        # Handle attachments (if any)
         files = request.FILES.getlist("attachments")
         for f in files:
             Attachment.objects.create(
@@ -41,8 +91,9 @@ class SendMessageView(APIView):
                 file_type=f.content_type,
                 file_size=f.size
             )
+
         return Response(MessageSerializer(message).data, status=201)
-    
+
 class MarkMessageReadView(APIView):
     permissions_classes = [permissions.IsAuthenticated]
 

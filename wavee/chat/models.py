@@ -15,7 +15,7 @@ class Chat(models.Model):
     type = models.CharField(max_length=10, choices=CHAT_TYPES, default=PRIVATE)
     title = models.CharField(max_length=255, blank=True, null=True)
     avatar = models.ImageField(upload_to='chat_avatars/', blank=True, null=True)
-    create_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
     def __str__(self):

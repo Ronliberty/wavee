@@ -43,10 +43,10 @@ class ChatMember(models.Model):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=MEMBER)
     joined_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    last_read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("chat", "user")
 
     def __str__(self):
         return f"{self.user.phone_number} in {self.chat.id} ({self.role})"
-

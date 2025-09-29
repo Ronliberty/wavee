@@ -42,6 +42,33 @@ class ChatSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chat
         fields = ["id", "type", "title", "avatar", "created_at", "members"]
+    def get_display_name(self, obj):
+        request = self.context.get("request")
+        current_user = getattr(request, "user", None)
+        if not current_user:
+            return obj.title or "Unknown"
+
+        if obj.type == Chat.GROUP:
+            return obj.title or "Group Chat"
+
+        if obj.type == Chat.PRIVATE:
+            # get the other member
+            other_member = obj.members.exclude(user=current_user).first()
+            if not other_member:
+                return "Private Chat"
+
+            other_user = other_member.user
+
+            # check if other_user is in current_user's contacts
+            contact_obj = current_user.contacts.filter(contact_user=other_user).first()
+            if contact_obj:
+                return contact_obj.contact_user.name  # saved contact name
+
+            # fallback to phone/email
+            return other_user.phone_number or other_user.email
+
+        return obj.title or "Unknown"
+
 
 
 # class ChatListSerializer(serializers.ModelSerializer):
@@ -94,63 +121,15 @@ class ChatSerializer(serializers.ModelSerializer):
 
 
 
-
 class ChatListSerializer(serializers.ModelSerializer):
-    """Serializer for listing chats with display info"""
-    display_name = serializers.SerializerMethodField()
-    avatar_url = serializers.SerializerMethodField()
-    last_message = serializers.SerializerMethodField()
-
+    unread_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Chat
         fields = [
             "id",
             "type",
             "title",
-            "display_name",
-            "avatar_url",
-            "last_message",
             "created_at",
             "members",
+            "unread_count",
         ]
-
-    def get_display_name(self, obj):
-        request = self.context.get("request")
-        current_user = getattr(request, "user", None)
-
-        if obj.type == "group":
-            return obj.title or "Group Chat"
-
-    # direct/private chat
-        if obj.type == "private" and current_user:
-            other_member = obj.members.exclude(user_id=current_user.id).first()
-            if other_member:
-                other_user = other_member.user  # directly get the User
-                return getattr(other_user, "phone_number", other_user.email)
-    
-        return obj.title or "Unknown"
-
-
-    def get_avatar_url(self, obj):
-        # Group chat avatar
-        if obj.type == Chat.GROUP:
-            return obj.avatar.url if obj.avatar else None
-
-        # Private chat: show other user's avatar
-        request = self.context.get("request")
-        current_user = getattr(request, "user", None)
-        if obj.type == Chat.PRIVATE and current_user:
-            other_member = obj.members.exclude(user_id=current_user.id).first()
-            if other_member:
-                other_user = other_member.user
-                # Return avatar URL if exists
-                return other_user.avatar.url if getattr(other_user, "avatar", None) else None
-
-        return None
-
-    def get_last_message(self, obj):
-        # Return the content of the last message
-        last = obj.messages.order_by("-created_at").first()
-        if last:
-            return last.content
-        return None

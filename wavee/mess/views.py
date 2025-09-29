@@ -94,12 +94,33 @@ class SendMessageView(APIView):
 
         return Response(MessageSerializer(message).data, status=201)
 
+# class MarkMessageReadView(APIView):
+#     permissions_classes = [permissions.IsAuthenticated]
+
+#     def post(self, request, message_id):
+#         message = get_object_or_404(Message, id=message_id)
+#         if request.user not in message.chat.members.values_list("user", flat=True):
+#             return Response({"error": "not amember"}, status=403)
+#         message.read_by.add(request.user)
+#         return Response({"message": "Marked as read"}, status=200)
+
+
+from django.utils import timezone
+
 class MarkMessageReadView(APIView):
-    permissions_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, message_id):
         message = get_object_or_404(Message, id=message_id)
         if request.user not in message.chat.members.values_list("user", flat=True):
-            return Response({"error": "not amember"}, status=403)
+            return Response({"error": "not a member"}, status=403)
+        
         message.read_by.add(request.user)
+        
+        # Update last_read_at on the member object
+        member_obj = message.chat.members.filter(user=request.user).first()
+        if member_obj:
+            member_obj.last_read_at = timezone.now()
+            member_obj.save()
+        
         return Response({"message": "Marked as read"}, status=200)

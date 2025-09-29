@@ -4,6 +4,7 @@ import uuid
 from django.utils import timezone
 from datetime import timedelta
 
+from phonenumber_field.modelfields import PhoneNumberField
 def default_expiry():
     return timezone.now() + timedelta(hours=24)
 
@@ -45,9 +46,10 @@ class UserManager(BaseUserManager):
 class User(AbstractUser, PermissionsMixin):
     username = None
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    phone_number = PhoneNumberField(unique=True)
    
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=15, unique=True)
+   
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

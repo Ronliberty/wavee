@@ -122,17 +122,17 @@ class ListUserChatsView(APIView):
                 if member_obj.last_read_at:
                     unread_count = chat.messages.filter(
                         created_at__gt=member_obj.last_read_at
-                    ).count()
+                    ).exclude(sender=request.user).count()
                 else:
-                    unread_count = chat.messages.count()
+                    unread_count = chat.messages.exclude(sender=request.user).count()
 
             # Determine display_name
             if chat.type == Chat.GROUP:
                 display_name = chat.title or "Group Chat"
             elif chat.type == Chat.PRIVATE and other_user:
                 contact_obj = request.user.contacts.filter(contact_user=other_user).first()
-                if contact_obj:
-                    display_name = contact_obj.contact_user.name
+                if contact_obj and contact_obj.display_name:
+                    display_name = contact_obj.display_name
                 else:
                     display_name = str(other_user.phone_number) if other_user.phone_number else other_user.email
             else:

@@ -10,11 +10,12 @@ class Contact(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_favorite = models.BooleanField(default=False)
     phone_number = PhoneNumberField()
+    display_name = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         unique_together = ("owner", "contact_user")
 
     def __str__(self):
-        return f"{self.owner} has {self.contact_user} in contacts"
+        return f"{self.owner} saved {self.contact_user} as {self.display_name or self.contact_user.username}"
     
 

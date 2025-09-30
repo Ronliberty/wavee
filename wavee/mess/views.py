@@ -107,20 +107,77 @@ class SendMessageView(APIView):
 
 from django.utils import timezone
 
+# class MarkMessageReadView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def post(self, request, message_id):
+#         message = get_object_or_404(Message, id=message_id)
+#         if request.user not in message.chat.members.values_list("user", flat=True):
+#             return Response({"error": "not a member"}, status=403)
+        
+#         message.read_by.add(request.user)
+        
+#         # Update last_read_at on the member object
+#         member_obj = message.chat.members.filter(user=request.user).first()
+#         if member_obj:
+#             member_obj.last_read_at = timezone.now()
+#             member_obj.save()
+        
+#         return Response({"message": "Marked as read"}, status=200)
+
+# class MarkMessageReadView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def post(self, request, message_id):
+        
+
+#         message = get_object_or_404(Message, id=message_id)
+
+#         # Only allow marking read if request.user is NOT the sender
+#         if message.sender == request.user:
+#             return Response({"error": "Sender cannot mark their own message as read"}, status=403)
+
+#         # Ensure the user is a member of the chat
+#         if request.user not in message.chat.members.values_list("user", flat=True):
+#             return Response({"error": "Not a member of this chat"}, status=403)
+
+#         # Mark message as read
+#         message.read_by.add(request.user)
+
+#         # Update last_read_at for this chat member
+#         member_obj = message.chat.members.filter(user=request.user).first()
+#         if member_obj:
+#             member_obj.last_read_at = timezone.now()
+#             member_obj.save()
+
+#         return Response({"message": "Marked as read"}, status=200)
+from rest_framework import permissions
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
 class MarkMessageReadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, message_id):
         message = get_object_or_404(Message, id=message_id)
-        if request.user not in message.chat.members.values_list("user", flat=True):
-            return Response({"error": "not a member"}, status=403)
-        
+
+        # Sender cannot mark own message
+        if message.sender_id == request.user.id:
+            return Response({"error": "Sender cannot mark their own message as read"}, status=403)
+
+        # Membership check
+        if request.user.id not in message.chat.members.values_list("user_id", flat=True):
+            return Response({"error": "Not a member of this chat"}, status=403)
+
+        # Mark as read
         message.read_by.add(request.user)
-        
-        # Update last_read_at on the member object
+
+        # Update last_read_at for this member
         member_obj = message.chat.members.filter(user=request.user).first()
         if member_obj:
             member_obj.last_read_at = timezone.now()
             member_obj.save()
-        
+
         return Response({"message": "Marked as read"}, status=200)

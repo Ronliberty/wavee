@@ -3,10 +3,21 @@ from .models import Message, Attachment
 from users.serializers import CurrentUserSerializer
 from chat.serializers import ChatSerializer
 
+
+
 class AttachmentSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+
     class Meta:
         model = Attachment
         fields = ["id", "file", "file_type", "file_size", "uploaded_at"]
+
+    def get_file(self, obj):
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = CurrentUserSerializer(read_only=True)

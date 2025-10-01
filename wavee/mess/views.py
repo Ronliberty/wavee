@@ -7,6 +7,10 @@ from chat.models import Chat
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
+from django.utils import timezone
+
+from rest_framework.pagination import PageNumberPagination
+
 
 # class ListMessagesView(APIView):
 #     permissions_classes = [permissions.IsAuthenticated]
@@ -18,7 +22,11 @@ from django.db import transaction
 #         messages = chat.messsages.all().order_by("created_at")
 #         serializer = MessageSerializer(messages, many=True)
 #         return Response(serializer.data)
-    
+
+class MessagePagination(PageNumberPagination):
+    page_size = 20  # load 20 messages at a time
+    page_size_query_param = "page_size"
+
 class ListMessagesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -29,9 +37,11 @@ class ListMessagesView(APIView):
         
         # Fixed typo here
         messages = chat.messages.all().order_by("created_at")
+        paginator = MessagePagination()
+        result_page = paginator.paginate_queryset(messages, request)
         
-        serializer = MessageSerializer(messages, many=True)
-        return Response(serializer.data)
+        serializer = MessageSerializer(messages, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 
@@ -105,7 +115,6 @@ class SendMessageView(APIView):
 #         return Response({"message": "Marked as read"}, status=200)
 
 
-from django.utils import timezone
 
 # class MarkMessageReadView(APIView):
 #     permission_classes = [permissions.IsAuthenticated]
@@ -151,11 +160,7 @@ from django.utils import timezone
 #             member_obj.save()
 
 #         return Response({"message": "Marked as read"}, status=200)
-from rest_framework import permissions
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
+
 
 class MarkMessageReadView(APIView):
     permission_classes = [permissions.IsAuthenticated]

@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Contact
 from .serializers import ContactListSerializer, AddContactSerializer
 
@@ -11,7 +11,7 @@ class ContactListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Contact.objects.filter(owner=self.request.user)
-    
+
 
 class AddContactView(APIView):
     permission_classes = [IsAuthenticated]
@@ -23,7 +23,7 @@ class AddContactView(APIView):
         display_name = serializer.validated_data.get("display_name", None)
         if request.user == contact_user:
             return Response({"error": "You cannot add yourself as a contact."}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         contact, created = Contact.objects.get_or_create(owner=request.user, contact_user=contact_user, defaults={"phone_number": contact_user.phone_number, "display_name": display_name})
 
         if not created:

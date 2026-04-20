@@ -9,78 +9,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import F, Count, OuterRef, Subquery
 from django.db import transaction
 
-# class ListUserChatsView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-
-#     def get(self, request):
-#         chats = Chat.objects.filter(members__user=request.user)
-#         serializer = ChatListSerializer(chats, many=True)
-#         return Response(serializer.data)
-
-
-
-# class ListUserChatsView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         tab = request.query_params.get("tab", "all")
-#         chats = Chat.objects.filter(members__user=request.user).distinct()
-#         if tab == "group":
-#             chats = chats.filter(type=Chat.GROUP)
-#         elif tab == "private":
-#             chats = chats.filter(type=Chat.PRIVATE)
-#         elif tab == "unread":
-#             chats = chats.filter(
-#                 members__user=request.user,
-#                 messages__created_at__gt=F("members__last_read_at")
-#             ).distinct()
-#         chat_data = []
-
-#         for chat in chats:
-#             # 1️⃣ Determine display_name
-#             if chat.type == Chat.GROUP:
-#                 display_name = chat.title or "Group Chat"
-#             elif chat.type == Chat.PRIVATE:
-#                 other_member = chat.members.exclude(user=request.user).first()
-#                 if not other_member:
-#                     display_name = "Private Chat"
-#                 else:
-#                     other_user = other_member.user
-#                     contact_obj = request.user.contacts.filter(contact_user=other_user).first()
-#                     if contact_obj:
-#                         display_name = contact_obj.contact_user.name
-#                     else:
-#                         display_name = str(other_user.phone_number) if other_user.phone_number else other_user.email
-#             else:
-#                 display_name = chat.title or "Unknown"
-
-#             # 2️⃣ Determine avatar URL
-#             if chat.type == Chat.GROUP:
-#                 avatar_url = chat.avatar.url if chat.avatar else None
-#             elif chat.type == Chat.PRIVATE and other_member:
-#                 avatar_url = other_user.avatar.url if getattr(other_user, "avatar", None) else None
-#             else:
-#                 avatar_url = None
-
-#             # 3️⃣ Determine last message
-#             last_message_obj = chat.messages.order_by("-created_at").first()
-#             last_message = last_message_obj.content if last_message_obj else None
-
-#             # Serialize base chat fields
-#             serializer = ChatListSerializer(chat)
-#             data = serializer.data
-
-#             # Inject custom fields
-#             data.update({
-#                 "display_name": display_name,
-#                 "avatar_url": avatar_url,
-#                 "last_message": last_message,
-#             })
-
-#             chat_data.append(data)
-
-#         return Response(chat_data)
 
 
 
@@ -159,65 +87,11 @@ class ListUserChatsView(APIView):
 
         return Response(chat_list)
 
-# class CreatePrivateChatView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-
-
-
-
-
-
-
-
-        
-      
-        
-#         other_user_id = request.data.get("user_id")
-#         other_user = get_object_or_404(User, id=other_user_id)
-
-#         chat = Chat.objects.filter(
-#             type=Chat.PRIVATE,
-#             members_user=request.user
-
-#         ).filter(
-#             members_user=other_user
-#         ).first()
-
-#         if not chat:
-#             chat = Chat.objects.create(type=Chat.PRIVATE)
-#             ChatMember.objects.create(chat=chat, user=request.user, role=ChatMember.MEMBER)
-#             ChatMember.objects.create(chat=chat, user=other_user, role=ChatMember.MEMBER)
-#         serializer = ChatSerializer(chat)
-#         return Response(serializer.data, status=201)
-
-# class CreatePrivateChatView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-#         phone_number = request.data.get("phone_number")
-#         other_user = get_object_or_404(User, phone_number=phone_number)
-
-#         chat = Chat.objects.filter(
-#             type=Chat.PRIVATE,
-#             members__user=request.user
-#         ).filter(
-#             members__user=other_user
-#         ).first()
-
-#         if not chat:
-#             chat = Chat.objects.create(type=Chat.PRIVATE)
-#             ChatMember.objects.create(chat=chat, user=request.user, role=ChatMember.MEMBER)
-#             ChatMember.objects.create(chat=chat, user=other_user, role=ChatMember.MEMBER)
-
-#         serializer = ChatSerializer(chat)
-#         return Response(serializer.data, status=201)
 
 class CreatePrivateChatView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic  # ensure atomicity
+    @transaction.atomic
     def post(self, request):
         phone_number = request.data.get("phone_number")
         if not phone_number:
@@ -258,7 +132,7 @@ class CreateGroupChatView(APIView):
 
         if not title:
             return Response({"error": "Name is required"}, status=400)
-        
+
         chat = Chat.objects.create(type=Chat.Group, title=title)
         ChatMember.objects.create(chat=chat, user=request.user, role=ChatMember.OWNER)
 

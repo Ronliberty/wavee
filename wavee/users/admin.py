@@ -33,13 +33,13 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("email", "name", "phone_number")
     ordering = ("email",)
     readonly_fields = ("date_joined",)
-    
+
     fieldsets = (
         (None, {"fields": ("email", "phone_number", "name", "password")}),
         ("Permissions", {"fields": ("is_staff", "is_active", "is_superuser", "groups", "user_permissions")}),
         ("Important dates", {"fields": ("date_joined",)}),
     )
-    
+
     add_fieldsets = (
         (None, {
             "classes": ("wide",),

@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-ma)p2tt$#*rf_ai1p_&3g5c@@(v_v36c%no7&@8_1o%rz!s3f0'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['wozaa.pythonanywhere.com']
 
 
 # Application definition
@@ -118,6 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://wava-ylst.vercel.app",
+    "https://wava-3gx6.vercel.app",
+    "https://wava.bitmindsystem.online"
 ]
 
 # Optional: allow cookies/auth headers
@@ -125,13 +128,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "users.authentication.CookieJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
-
 
 
 SIMPLE_JWT = {
@@ -159,7 +161,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 # Default primary key field type
@@ -170,7 +174,7 @@ AUTH_USER_MODEL = "users.User"
 INVITE_JWT_SECRET = os.environ.get("INVITE_JWT_SECRET", SECRET_KEY)  # use a dedicated secret in prod
 INVITE_JWT_ALGORITHM = "HS256"
 INVITE_DEFAULT_EXPIRY_HOURS = int(os.environ.get("INVITE_DEFAULT_EXPIRY_HOURS", 24))
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wava.bitmindsystem.online")
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -1,58 +1,11 @@
-# from rest_framework import generics, status
-# from rest_framework.response import Response
-# from django.utils import timezone
-# from django.shortcuts import get_object_or_404
-# from .models import User, Invite
 
-# from .serializers import UserSerializer, RegisterSerializer
-# from rest_framework.permissions import IsAuthenticated, AllowAny
-# from rest_framework.views import APIView
-
-
-
-# # class RegisterUserView(APIView):
-# #     permission_classes = [AllowAny]
-# #     def post(self, request, token, *args, **kwargs):
-# #         invite = get_object_or_404(Invite, token=token, is_used=False)
-# #         if invite.expires_at < timezone.now():
-# #             return Response({"error": "Invite token has expired."}, status=status.HTTP_400_BAD_REQUEST)
-# #         serializer = UserSerializer(data=request.data)
-# #         if serializer.is_valid():
-# #             user = serializer.save()
-# #             invite.is_used = True
-# #             invite.save()
-# #             return Response({"message": "User registered successfully", "user": UserSerializer(user).data},
-# #                             status=status.HTTP_201_CREATED)
-# #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-# class RegisterUserView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request, token, *args, **kwargs):
-#         data = request.data.copy()
-#         data["token"] = token  # inject token into serializer
-
-#         serializer = RegisterSerializer(data=data)
-#         if serializer.is_valid():
-#             user = serializer.save()
-#             return Response(
-#                 {"message": "User registered successfully", "user": UserSerializer(user).data},
-#                 status=status.HTTP_201_CREATED,
-#             )
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-# class UserListView(generics.ListAPIView):
-#     queryset = User.objects.all()
-#     serializer_class = UserSerializer
-#     permission_classes = [IsAuthenticated]
 
 
 # yourapp/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
-
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from django.conf import settings
 from .utils.invite_jwt import create_invite_jwt, decode_invite_jwt
@@ -111,7 +64,7 @@ class RegisterUserView(APIView):
             phone_number=phone,
             name=name,
             password=password,
-            
+
         )
 
         invite_obj.is_used = True
@@ -162,12 +115,10 @@ class LoginAPIView(APIView):
 
 
 
+
+
 class EmailLoginView(APIView):
     permission_classes = [AllowAny]
-
-    """
-    Custom login view for email + passkey authentication returning JWT.
-    """
 
     def post(self, request):
         serializer = EmailLoginSerializer(data=request.data)
@@ -175,16 +126,76 @@ class EmailLoginView(APIView):
         user = serializer.validated_data["user"]
 
         refresh = RefreshToken.for_user(user)
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
+        access = str(refresh.access_token)
+
+        response = Response({
             "user": {
                 "id": str(user.id),
                 "email": user.email,
                 "name": user.name,
             }
         }, status=status.HTTP_200_OK)
-    
+
+        # ✅ Set cookies
+        response.set_cookie(
+            key="access_token",
+            value=access,
+            httponly=True,
+            secure=True,  # True in production (HTTPS)
+            samesite="None"
+        )
+
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            secure=True,
+            samesite="None"
+        )
+
+        return response
+
+
+
+
+
+
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if not refresh_token:
+            return Response({"error": "No refresh token"}, status=401)
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            access = str(refresh.access_token)
+
+            response = Response({"message": "Token refreshed"})
+
+            response.set_cookie(
+                key="access_token",
+                value=access,
+                httponly=True,
+                secure=True,
+                samesite="None"
+            )
+
+            return response
+        except Exception:
+            return Response({"error": "Invalid refresh token"}, status=401)
+
+class LogoutView(APIView):
+    def post(self, request):
+        response = Response({"message": "Logged out"})
+
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+
+        return response
+
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]  # JWT must be provided

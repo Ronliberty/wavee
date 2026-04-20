@@ -1,50 +1,121 @@
 from rest_framework import serializers
-from .models import Message, Attachment
-from users.serializers import CurrentUserSerializer
-from chat.serializers import ChatSerializer
-
-
-
-class AttachmentSerializer(serializers.ModelSerializer):
-    file = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Attachment
-        fields = ["id", "file", "file_type", "file_size", "uploaded_at"]
-
-    def get_file(self, obj):
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(obj.file.url)
-        return obj.file.url
+from .models import Message, Attachment, Conversation, ConversationParticipant
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = CurrentUserSerializer(read_only=True)
-    chat = ChatSerializer(read_only=True)
-    attachments = AttachmentSerializer(many=True, read_only=True)
-    delivered_to = CurrentUserSerializer(many=True, read_only=True)
-    read_by = CurrentUserSerializer(many=True, read_only=True)
+    conversationId = serializers.UUIDField(source="conversation.id", read_only=True)
+    senderId = serializers.UUIDField(source="sender.id", read_only=True)
+    timestamp = serializers.DateTimeField(source="created_at", read_only=True)
 
+    isRead = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = [
             "id",
-            "chat",
-            "sender",
+            "conversationId",
+            "senderId",
             "content",
+            "timestamp",
+            "isRead",
+            "status",
             "type",
-            "attachments",
-            "created_at",
-            "updated_at",
-            "is_deleted",
-            "delivered_to",
-            "read_by",
+        ]
+
+    def get_isRead(self, obj):
+        user = self.context.get("request").user
+        return obj.read_by.filter(id=user.id).exists()
+
+
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Attachment
+        fields = [
+            "id",
+            "file",
+            "file_type",
+            "file_size",
+            "file_name",
+            "mime_type",
+            "width",
+            "height",
+            "thumbnail",
         ]
 
 
-class CreateMessageSerializer(serializers.ModelSerializer):
+
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    lastMessage = serializers.SerializerMethodField()
+    lastMessageTime = serializers.SerializerMethodField()
+    unreadCount = serializers.SerializerMethodField()
+
+    isGroup = serializers.BooleanField(source="is_group")
+    participants = serializers.SerializerMethodField()
+    isArchived = serializers.SerializerMethodField()
+
     class Meta:
-        model = Message
-        fields = ["chat", "content", "type"]
+        model = Conversation
+        fields = [
+            "id",
+            "title",
+            "lastMessage",
+            "lastMessageTime",
+            "unreadCount",
+            "isGroup",
+            "isArchived",
+            "participants",
+        ]
+
+
+    def get_lastMessage(self, obj):
+        if obj.last_message:
+            return obj.last_message.content
+        return ""
+
+
+    def get_lastMessageTime(self, obj):
+        if obj.last_message:
+            return obj.last_message.created_at
+        return None
+
+
+    def get_unreadCount(self, obj):
+        user = self.context.get("request").user
+
+        participant = obj.participants.filter(user=user).first()
+        if not participant or not participant.last_read_at:
+            return obj.messages.count()
+
+        return obj.messages.filter(
+            created_at__gt=participant.last_read_at
+        ).count()
+
+
+    def get_participants(self, obj):
+        return list(
+            obj.participants.values_list("user__id", flat=True)
+        )
+
+
+    def get_isArchived(self, obj):
+        user = self.context.get("request").user
+
+        participant = obj.participants.filter(user=user).first()
+        return participant.is_archived if participant else False
+
+
+
+
+
+class StartConversationSerializer(serializers.Serializer):
+    contact_name = serializers.CharField(required=True, max_length=255)
+
+    def validate_contact_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Contact name cannot be empty.")
+        return value

@@ -125,7 +125,18 @@ class EmailLoginSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
-    
+
+class MeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "name",
+            "phone_number",
+            "date_joined",
+        ]
+
 
 class CurrentUserSerializer(serializers.ModelSerializer):
     class Meta:

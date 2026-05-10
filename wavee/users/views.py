@@ -2,6 +2,7 @@
 
 
 # yourapp/views.py
+from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
@@ -9,10 +10,23 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from django.conf import settings
 from .utils.invite_jwt import create_invite_jwt, decode_invite_jwt
-from .serializers import RegisterSerializer, EmailLoginSerializer, CurrentUserSerializer
+from .serializers import RegisterSerializer, EmailLoginSerializer, CurrentUserSerializer, MeSerializer
 from django.utils import timezone
-from .models import * # optional
+from .models import *
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView, TokenObtainPairView
+from rest_framework_simplejwt.exceptions import TokenError
+
+
+User = get_user_model()
+
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = MeSerializer(request.user)
+        return Response(serializer.data)
 
 class CreateInviteView(APIView):
     permission_classes = [IsAdminUser]  # only admins can create invites
@@ -127,8 +141,10 @@ class EmailLoginView(APIView):
 
         refresh = RefreshToken.for_user(user)
         access = str(refresh.access_token)
+        cookie_settings = settings.REFRESH_TOKEN_COOKIE
 
         response = Response({
+            "access": access,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -138,19 +154,22 @@ class EmailLoginView(APIView):
 
         # ✅ Set cookies
         response.set_cookie(
-            key="access_token",
-            value=access,
-            httponly=True,
-            secure=True,  # True in production (HTTPS)
-            samesite="None"
+            key=cookie_settings["name"],
+            value=str(refresh),
+             httponly=cookie_settings["httponly"],
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            path=cookie_settings["path"],
+            max_age=cookie_settings["max_age"],
         )
 
         response.set_cookie(
-            key="refresh_token",
-            value=str(refresh),
+            key="access_token",
+            value=access,
             httponly=True,
-            secure=True,
-            samesite="None"
+            secure=cookie_settings["secure"],
+            samesite=cookie_settings["samesite"],
+            path="/",
         )
 
         return response
@@ -160,32 +179,77 @@ class EmailLoginView(APIView):
 
 
 
-class CookieTokenRefreshView(APIView):
-    permission_classes = [AllowAny]
+class CookieTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        old_refresh = request.COOKIES.get("refresh_token")
 
-    def post(self, request):
-        refresh_token = request.COOKIES.get("refresh_token")
-
-        if not refresh_token:
-            return Response({"error": "No refresh token"}, status=401)
+        if not old_refresh:
+            return Response({"detail": "No refresh token"}, status=401)
 
         try:
-            refresh = RefreshToken(refresh_token)
-            access = str(refresh.access_token)
+            refresh = RefreshToken(old_refresh)
+            user = User.objects.get(id=refresh["user_id"])
+        except Exception:
+            return Response({"detail": "Invalid token"}, status=401)
 
-            response = Response({"message": "Token refreshed"})
+        serializer = self.get_serializer(data={"refresh": old_refresh})
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError:
+            return Response({"detail": "Token invalid"}, status=401)
+
+        data = serializer.validated_data
+
+        response = Response({
+            "access": data.get("access"),
+            "user": MeSerializer(user).data
+        })
+
+
+        if "refresh" in data:
+            cookie_settings = settings.REFRESH_TOKEN_COOKIE
 
             response.set_cookie(
-                key="access_token",
-                value=access,
-                httponly=True,
-                secure=True,
-                samesite="None"
+                key=cookie_settings["name"],
+                value=data["refresh"],
+                httponly=cookie_settings["httponly"],
+                secure=cookie_settings["secure"],
+                samesite=cookie_settings["samesite"],
+                path=cookie_settings["path"],
+                max_age=cookie_settings["max_age"],
             )
 
-            return response
-        except Exception:
-            return Response({"error": "Invalid refresh token"}, status=401)
+        return response
+
+
+
+# class CookieTokenRefreshView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def post(self, request):
+#         refresh_token = request.COOKIES.get("refresh_token")
+
+#         if not refresh_token:
+#             return Response({"error": "No refresh token"}, status=401)
+
+#         try:
+#             refresh = RefreshToken(refresh_token)
+#             access = str(refresh.access_token)
+
+#             response = Response({"message": "Token refreshed"})
+
+#             response.set_cookie(
+#                 key="access_token",
+#                 value=access,
+#                 httponly=True,
+#                 secure=True,
+#                 samesite="None"
+#             )
+
+#             return response
+#         except Exception:
+#             return Response({"error": "Invalid refresh token"}, status=401)
 
 class LogoutView(APIView):
     def post(self, request):

@@ -136,8 +136,21 @@ REST_FRAMEWORK = {
 }
 
 
+
+REFRESH_TOKEN_COOKIE = {
+    'name': 'refresh_token',
+    'httponly': True,
+    'secure': True,
+    'samesite': 'None',
+    'path': '/',
+    'max_age': 7*24*3600,
+
+
+}
+
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "ROTATE_REFRESH_TOKENS": True,
